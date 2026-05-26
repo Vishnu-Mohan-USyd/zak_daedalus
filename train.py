@@ -9,7 +9,7 @@ from torch.utils.data import Dataset, DataLoader
 import numpy as np
 from collections import defaultdict
 
-# ── Config ──────────────────────────────────────────────────────────────────
+# Config
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_PATH = os.path.join(SCRIPT_DIR, "processed", "dataset.pt")
 MODEL_PATH = os.path.join(SCRIPT_DIR, "processed", "model.pt")
@@ -23,7 +23,7 @@ PATIENCE = 15
 RANDOM_SEED = 42
 
 
-# ── SpecAugment ─────────────────────────────────────────────────────────────
+# SpecAugment
 def spec_augment(x, freq_mask_max=10, time_mask_max=10):
     """Apply frequency and time masking to a spectrogram tensor (1, F, T)."""
     x = x.clone()
@@ -44,7 +44,7 @@ def spec_augment(x, freq_mask_max=10, time_mask_max=10):
     return x
 
 
-# ── Dataset ─────────────────────────────────────────────────────────────────
+# Dataset
 class WordDataset(Dataset):
     def __init__(self, spectrograms, labels, augment=False):
         self.X = spectrograms.unsqueeze(1)  # (N, 80, T) -> (N, 1, 80, T)
@@ -61,7 +61,7 @@ class WordDataset(Dataset):
         return x, self.y[idx]
 
 
-# ── Model ───────────────────────────────────────────────────────────────────
+# Model
 
 
 class ResBlock(nn.Module):
@@ -111,7 +111,7 @@ class WordResNet(nn.Module):
         return x
 
 
-# ── Stratified split ────────────────────────────────────────────────────────
+# Stratified split
 def stratified_split(labels, test_size, random_state):
     """Split indices into train/val with stratification by label."""
     rng = np.random.RandomState(random_state)
@@ -133,7 +133,7 @@ def stratified_split(labels, test_size, random_state):
     return np.array(train_idx), np.array(val_idx)
 
 
-# ── Main ────────────────────────────────────────────────────────────────────
+# Main
 def main():
     torch.manual_seed(RANDOM_SEED)
     np.random.seed(RANDOM_SEED)
@@ -192,7 +192,7 @@ def main():
     print("-" * 55)
 
     for epoch in range(1, NUM_EPOCHS + 1):
-        # ── Train ──
+        # Train
         model.train()
         train_loss = 0.0
         train_correct = 0
@@ -213,7 +213,7 @@ def main():
         train_loss /= train_total
         train_acc = train_correct / train_total
 
-        # ── Validate ──
+        # Validate
         model.eval()
         val_loss = 0.0
         val_correct = 0

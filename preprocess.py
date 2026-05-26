@@ -8,7 +8,7 @@ import scipy.signal
 import torch
 
 
-# ── Config ──────────────────────────────────────────────────────────────────
+# Config
 DATA_DIR = os.path.expanduser("~/Downloads/audio")
 OUTPUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "processed")
 
@@ -21,7 +21,7 @@ MAX_DURATION_S = 1.0   # pad/truncate all audio to this length
 MAX_SAMPLES = int(SAMPLE_RATE * MAX_DURATION_S)
 
 
-# ── Mel filterbank ──────────────────────────────────────────────────────────
+# Mel filterbank
 def hz_to_mel(hz):
     return 2595.0 * np.log10(1.0 + hz / 700.0)
 
@@ -54,7 +54,7 @@ def create_mel_filterbank(sr, n_fft, n_mels, fmin=0.0, fmax=None):
     return filterbank
 
 
-# ── Spectrogram ─────────────────────────────────────────────────────────────
+# Spectrogram
 def wav_to_log_mel_spectrogram(audio, sr, mel_fb):
     # Compute STFT magnitude (window=25ms, hop=10ms, zero-pad to n_fft=2048)
     _, _, Zxx = scipy.signal.stft(
@@ -71,7 +71,7 @@ def wav_to_log_mel_spectrogram(audio, sr, mel_fb):
     return log_mel
 
 
-# ── Label extraction ────────────────────────────────────────────────────────
+# Label extraction
 def extract_label(filename):
     """Extract the word label from filename like '01_01-002_REPLY-C.wav'."""
     name_no_ext = filename.rsplit(".wav", 1)[0]   # '01_01-002_REPLY-C'
@@ -81,7 +81,7 @@ def extract_label(filename):
     return label.strip()
 
 
-# ── Main ────────────────────────────────────────────────────────────────────
+# Main
 def main():
     np.random.seed(42)
     mel_fb = create_mel_filterbank(SAMPLE_RATE, N_FFT, N_MELS)

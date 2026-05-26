@@ -19,7 +19,7 @@ MODEL_PATH = os.path.join(SCRIPT_DIR, "processed", "model.pt")
 ANALYSIS_DIR = os.path.join(SCRIPT_DIR, "analysis")
 os.makedirs(ANALYSIS_DIR, exist_ok=True)
 
-# ── Grouping helpers ───────────────────────────────────────────────────────
+# Grouping helpers
 
 VOWELS = set("AEIOU")
 
@@ -159,7 +159,7 @@ def get_speaker(filepath: str) -> str:
     return f"speaker-{m.group(1)}" if m else "unknown"
 
 
-# ── Plotting ───────────────────────────────────────────────────────────────
+# Plotting
 
 def plot_horizontal_bars(group_accs, group_counts, overall_acc, title, xlabel, save_path):
     """Create a publication-quality horizontal bar chart of per-group accuracy."""
@@ -234,7 +234,7 @@ def plot_top_bottom_words(word_accs, word_counts, overall_acc, save_path, n=20):
     print(f"  Saved: {save_path}")
 
 
-# ── Main ───────────────────────────────────────────────────────────────────
+# Main
 
 def main():
     print("=" * 60)
@@ -296,7 +296,7 @@ def main():
     overall_acc = overall_correct / len(val_labels_np)
     print(f"  Overall accuracy: {overall_acc:.1%} ({overall_correct}/{len(val_labels_np)})")
 
-    # ── A. By onset consonant ──────────────────────────────────────────────
+    # A. By onset consonant
     print("\n" + "-" * 60)
     print("A. Accuracy by Onset Consonant")
     print("-" * 60)
@@ -317,7 +317,7 @@ def main():
                          "Accuracy (%)",
                          os.path.join(ANALYSIS_DIR, "accuracy_by_onset.png"))
 
-    # ── B. By syllable count ───────────────────────────────────────────────
+    # B. By syllable count
     print("\n" + "-" * 60)
     print("B. Accuracy by Syllable Count")
     print("-" * 60)
@@ -338,7 +338,7 @@ def main():
                          "Accuracy (%)",
                          os.path.join(ANALYSIS_DIR, "accuracy_by_syllables.png"))
 
-    # ── C. By word length ──────────────────────────────────────────────────
+    # C. By word length
     print("\n" + "-" * 60)
     print("C. Accuracy by Word Length")
     print("-" * 60)
@@ -359,7 +359,7 @@ def main():
                          "Accuracy (%)",
                          os.path.join(ANALYSIS_DIR, "accuracy_by_length.png"))
 
-    # ── D. Per-word accuracy (top/bottom 20) ───────────────────────────────
+    # D. Per-word accuracy (top/bottom 20)
     print("\n" + "-" * 60)
     print("D. Per-Word Accuracy (20 hardest / 20 easiest)")
     print("-" * 60)
@@ -375,7 +375,7 @@ def main():
     plot_top_bottom_words(word_accs, word_total, overall_acc,
                           os.path.join(ANALYSIS_DIR, "accuracy_per_word.png"))
 
-    # ── E. By speaker ─────────────────────────────────────────────────────
+    # E. By speaker
     print("\n" + "-" * 60)
     print("E. Accuracy by Speaker")
     print("-" * 60)
@@ -396,7 +396,7 @@ def main():
                          "Accuracy (%)",
                          os.path.join(ANALYSIS_DIR, "accuracy_by_speaker.png"))
 
-    # ── F. By vowel sound ─────────────────────────────────────────────────
+    # F. By vowel sound
     print("\n" + "-" * 60)
     print("F. Accuracy by Vowel Sound")
     print("-" * 60)
@@ -417,7 +417,7 @@ def main():
                          "Accuracy (%)",
                          os.path.join(ANALYSIS_DIR, "accuracy_by_vowel.png"))
 
-    # ── G. By sample frequency ────────────────────────────────────────────
+    # G. By sample frequency
     print("\n" + "-" * 60)
     print("G. Accuracy by Sample Frequency (total dataset samples per word)")
     print("-" * 60)
@@ -444,7 +444,7 @@ def main():
                          "Accuracy (%)",
                          os.path.join(ANALYSIS_DIR, "accuracy_by_frequency.png"))
 
-    # ── Original combined figure (A-C) ─────────────────────────────────────
+    # Original combined figure (A-C)
     print("\n" + "-" * 60)
     print("Generating combined A-C figure...")
     print("-" * 60)
@@ -489,7 +489,7 @@ def main():
     plt.close(fig)
     print(f"  Saved: {combined_path}")
 
-    # ── H. Combined mega-figure (all 7 analyses) ──────────────────────────
+    # H. Combined mega-figure (all 7 analyses)
     print("\n" + "-" * 60)
     print("H. Generating combined mega-figure (all breakdowns)...")
     print("-" * 60)
@@ -572,7 +572,7 @@ def main():
     plt.close(fig)
     print(f"  Saved: {mega_path}")
 
-    # ── Full per-word breakdown ────────────────────────────────────────────
+    # Full per-word breakdown
     print("\n" + "-" * 60)
     print("Per-Word Accuracy (sorted worst to best)")
     print("-" * 60)

@@ -14,7 +14,7 @@ from PIL import Image
 
 from train import ResBlock, WordResNet, stratified_split
 
-# ── Global plot style ──────────────────────────────────────────────────────
+# Global plot style
 plt.rcParams.update({
     "font.family": "sans-serif",
     "font.sans-serif": ["Arial", "Helvetica", "DejaVu Sans"],
@@ -31,7 +31,7 @@ plt.rcParams.update({
     "savefig.pad_inches": 0.1,
 })
 
-# ── Config ──────────────────────────────────────────────────────────────────
+# Config
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_PATH = os.path.join(SCRIPT_DIR, "processed", "dataset.pt")
 MODEL_PATH = os.path.join(SCRIPT_DIR, "processed", "model.pt")
@@ -44,7 +44,7 @@ SAMPLE_RATE = 44100
 N_MELS = 80
 MAX_DURATION_S = 1.0
 
-# ── Category definitions for UMAP colorings ───────────────────────────────
+# Category definitions for UMAP colorings
 SEMANTIC = {
     "Numbers": [
         "ZERO", "ONE", "TWO", "THREE", "FOUR", "FIVE", "SIX", "SEVEN",
@@ -200,7 +200,7 @@ def _categorize(word, cat_dict):
     return "Other"
 
 
-# ── Acoustic similarity clustering (raw spectrograms) ──────────────────────
+# Acoustic similarity clustering (raw spectrograms)
 N_CLUSTERS = 12
 
 
@@ -300,7 +300,7 @@ def extract_speaker(path):
     return "unknown"
 
 
-# ── Data / model loading ───────────────────────────────────────────────────
+# Data / model loading
 def load_all():
     data = torch.load(DATA_PATH, weights_only=False)
     spectrograms = data["spectrograms"]
@@ -370,9 +370,7 @@ def extract_layer_activations(model, val_X, device, batch_size=64):
     return {k: torch.cat(v).flatten(1).numpy() for k, v in layer_acts.items()}
 
 
-# ═══════════════════════════════════════════════════════════════════════════
 # Analysis 1: UMAP — Trained vs Untrained
-# ═══════════════════════════════════════════════════════════════════════════
 def _plot_umap_coloring(emb_u_2d, emb_t_2d, sample_cats, cat_order,
                         cat_colors, suptitle, filename, method,
                         text_box=None):
@@ -443,7 +441,7 @@ def analysis1_umap(model_t, model_u, val_X, val_y, val_paths,
     emb_u_2d = reduce(emb_u)
     emb_t_2d = reduce(emb_t)
 
-    # ── Figure 1: Semantic categories ──
+    # Figure 1: Semantic categories
     sem_colors = {"Numbers": "#1f77b4", "Months": "#2ca02c", "Days": "#ff7f0e",
                   "Commands": "#d62728", "Family": "#9467bd",
                   "Media/Tech": "#17becf", "Other": "#999999"}
@@ -453,7 +451,7 @@ def analysis1_umap(model_t, model_u, val_X, val_y, val_paths,
     _plot_umap_coloring(emb_u_2d, emb_t_2d, sem_cats, sem_order, sem_colors,
                         "Colored by Semantic Category", "umap_semantic", method)
 
-    # ── Figure 2: Phonetic onset class (manner of articulation, 6 groups) ──
+    # Figure 2: Phonetic onset class (manner of articulation, 6 groups)
     oc_colors = {"Plosives": "#e41a1c", "Fricatives": "#377eb8",
                  "Nasals": "#4daf4a", "Liquids & Glides": "#ff7f00",
                  "Vowel-Initial": "#984ea3", "Affricates": "#a65628",
@@ -465,7 +463,7 @@ def analysis1_umap(model_t, model_u, val_X, val_y, val_paths,
                         "Colored by Onset Phoneme Class", "umap_onset_class",
                         method)
 
-    # ── Figure 3: First sound (13 groups) ──
+    # Figure 3: First sound (13 groups)
     fs_cmap = plt.get_cmap("tab20", 13)
     fs_order = list(FIRST_SOUND.keys())
     fs_colors = {cat: fs_cmap(i) for i, cat in enumerate(fs_order)}
@@ -473,7 +471,7 @@ def analysis1_umap(model_t, model_u, val_X, val_y, val_paths,
     _plot_umap_coloring(emb_u_2d, emb_t_2d, fs_cats, fs_order, fs_colors,
                         "Colored by First Sound", "umap_first_sound", method)
 
-    # ── Figure 4: K-means on trained model GAP centroids (k=10) ──
+    # Figure 4: K-means on trained model GAP centroids (k=10)
     class_centroids = np.zeros((num_classes, emb_t.shape[1]))
     for c in range(num_classes):
         mask = labels_np == c
@@ -500,7 +498,7 @@ def analysis1_umap(model_t, model_u, val_X, val_y, val_paths,
                         km_colors, "Colored by K-Means on Model Embeddings",
                         "umap_kmeans", method, text_box=km_text)
 
-    # ── Figure 5: Acoustic similarity from raw spectrograms ──
+    # Figure 5: Acoustic similarity from raw spectrograms
     ac_cats = cinfo["sample_cluster_names"]
     ac_order = cinfo["cat_order"]
     ac_colors = cinfo["cat_colors"]
@@ -516,7 +514,7 @@ def analysis1_umap(model_t, model_u, val_X, val_y, val_paths,
                         "Colored by Acoustic Similarity (Raw Spectrograms)",
                         "umap_acoustic", method, text_box=ac_text)
 
-    # ── Speaker figure (unchanged) ──
+    # Speaker figure (unchanged)
     speakers = np.array([extract_speaker(p) for p in val_paths])
     unique_speakers = sorted(set(speakers))
     speaker_cmap = plt.get_cmap("tab20", len(unique_speakers))
@@ -540,9 +538,7 @@ def analysis1_umap(model_t, model_u, val_X, val_y, val_paths,
     savefig(fig, "rev_umap_by_speaker")
 
 
-# ═══════════════════════════════════════════════════════════════════════════
 # Analysis 2: Top Confused Pairs + Category-Level Matrix
-# ═══════════════════════════════════════════════════════════════════════════
 def analysis2_confusions(model_t, val_X, val_y, idx_to_label, device, cinfo):
     print("[2/6] Confusion analysis...")
     from sklearn.metrics import confusion_matrix
@@ -554,7 +550,7 @@ def analysis2_confusions(model_t, val_X, val_y, idx_to_label, device, cinfo):
     word_to_cluster = cinfo["word_to_cluster"]
     cat_order = cinfo["cat_order"]
 
-    # ── Top-20 confused pairs ──
+    # Top-20 confused pairs
     cm_off = cm.copy()
     np.fill_diagonal(cm_off, 0)
     row_sums = cm.sum(axis=1)
@@ -637,7 +633,7 @@ def analysis2_confusions(model_t, val_X, val_y, idx_to_label, device, cinfo):
     ax.legend(handles=legend_elements, loc="lower right", fontsize=8)
     savefig(fig, "rev_top_confusions")
 
-    # ── Cluster-level confusion matrix ──
+    # Cluster-level confusion matrix
     word_cats_true = [word_to_cluster.get(idx_to_label[t], cat_order[0])
                       for t in true]
     word_cats_pred = [word_to_cluster.get(idx_to_label[p], cat_order[0])
@@ -679,9 +675,7 @@ def analysis2_confusions(model_t, val_X, val_y, idx_to_label, device, cinfo):
     return cm
 
 
-# ═══════════════════════════════════════════════════════════════════════════
 # Analysis 3: Linear Probes
-# ═══════════════════════════════════════════════════════════════════════════
 def analysis3_linear_probes(model_t, model_u, val_X, val_specs, val_y,
                             val_paths, device):
     print("[3/6] Linear probes...")
@@ -771,9 +765,7 @@ def analysis3_linear_probes(model_t, model_u, val_X, val_specs, val_y,
     savefig(fig, "rev_linear_probes")
 
 
-# ═══════════════════════════════════════════════════════════════════════════
 # Analysis 4: Grad-CAM on Confused Word Pairs
-# ═══════════════════════════════════════════════════════════════════════════
 def analysis4_gradcam_confusions(model_t, val_X, val_y, idx_to_label,
                                   label_to_idx, device):
     print("[4/6] Grad-CAM on confused pairs...")
@@ -883,9 +875,7 @@ def analysis4_gradcam_confusions(model_t, val_X, val_y, idx_to_label,
     savefig(fig, "rev_gradcam_confusions")
 
 
-# ═══════════════════════════════════════════════════════════════════════════
 # Analysis 5: RDMs with Category Separation Index
-# ═══════════════════════════════════════════════════════════════════════════
 def analysis5_rdm(model_t, model_u, val_X, val_y, idx_to_label, device, cinfo):
     print("[5/6] RDMs with CSI...")
     from scipy.spatial.distance import cosine
@@ -994,9 +984,7 @@ def analysis5_rdm(model_t, model_u, val_X, val_y, idx_to_label, device, cinfo):
     savefig(fig, "rev_rdm_comparison")
 
 
-# ═══════════════════════════════════════════════════════════════════════════
 # Analysis 6: Effective Receptive Field (Input Saliency)
-# ═══════════════════════════════════════════════════════════════════════════
 def analysis6_saliency(model_t, val_X, val_y, idx_to_label, label_to_idx,
                        device, cinfo):
     print("[6/6] Effective receptive field (input saliency)...")
@@ -1094,9 +1082,7 @@ def analysis6_saliency(model_t, val_X, val_y, idx_to_label, label_to_idx,
 
 
 
-# ═══════════════════════════════════════════════════════════════════════════
 # Main
-# ═══════════════════════════════════════════════════════════════════════════
 def main():
     os.makedirs(OUT_DIR, exist_ok=True)
     (model_t, model_u, val_X, val_specs, val_y, val_paths,

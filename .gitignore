@@ -2,11 +2,22 @@
 processed/
 models/
 
+# Visual data (raw clips + memmap caches — never commit, too large)
+data/visual/cache/
+data/visual/video_data/
+data/visual/video_data.zip
+
 # IDE
 .idea/
 
 # Backups
 *.bak
+
+# Run logs
+*.log
+
+# Example-script outputs
+examples/output/
 
 # Python
 __pycache__/

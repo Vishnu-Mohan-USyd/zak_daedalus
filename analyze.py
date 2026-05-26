@@ -15,7 +15,7 @@ from PIL import Image
 
 from train import ResBlock, WordResNet, stratified_split
 
-# ── Global plot style ──────────────────────────────────────────────────────
+# Global plot style
 plt.rcParams.update({
     "font.family": "sans-serif",
     "font.sans-serif": ["Arial", "Helvetica", "DejaVu Sans"],
@@ -32,7 +32,7 @@ plt.rcParams.update({
     "savefig.pad_inches": 0.1,
 })
 
-# ── Config ──────────────────────────────────────────────────────────────────
+# Config
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_PATH = os.path.join(SCRIPT_DIR, "processed", "dataset.pt")
 MODEL_PATH = os.path.join(SCRIPT_DIR, "processed", "model.pt")
@@ -129,7 +129,7 @@ def get_cat_boundaries(sorted_class_cats):
     return boundaries
 
 
-# ── Data loading ────────────────────────────────────────────────────────────
+# Data loading
 def load_data_and_model():
     data = torch.load(DATA_PATH, weights_only=False)
     spectrograms = data["spectrograms"]
@@ -207,7 +207,7 @@ def extract_layer_activations(model, val_X, device, batch_size=64):
     return {k: torch.cat(v).flatten(1).numpy() for k, v in layer_acts.items()}
 
 
-# ── Fig 1a: Confusion Matrix ───────────────────────────────────────────────
+# Fig 1a: Confusion Matrix
 def fig1a_confusion_matrix(model, val_X, val_y, idx_to_label, device):
     print("\n[1/9] Fig 1a: Confusion matrix...")
     from sklearn.metrics import confusion_matrix
@@ -262,7 +262,7 @@ def fig1a_confusion_matrix(model, val_X, val_y, idx_to_label, device):
     return cm_raw, all_true, all_preds
 
 
-# ── Fig 1b: Top-20 Confused Pairs ──────────────────────────────────────────
+# Fig 1b: Top-20 Confused Pairs
 def fig1b_top_confusions(cm_raw, idx_to_label):
     print("[2/9] Fig 1b: Top-20 confused pairs...")
     num_classes = cm_raw.shape[0]
@@ -346,7 +346,7 @@ def fig1b_top_confusions(cm_raw, idx_to_label):
     savefig(fig, "fig1b_top_confusions")
 
 
-# ── Fig 2a/2b: UMAP Embeddings ─────────────────────────────────────────────
+# Fig 2a/2b: UMAP Embeddings
 def fig2_umap(model, val_X, val_y, val_paths, idx_to_label, device):
     print("[3/9] Fig 2a/2b: UMAP embeddings...")
 
@@ -380,7 +380,7 @@ def fig2_umap(model, val_X, val_y, val_paths, idx_to_label, device):
         method = "t-SNE"
     print(f"  Using {method}, shape: {emb_2d.shape}")
 
-    # ── Fig 2a: by category ──
+    # Fig 2a: by category
     word_labels = [idx_to_label[l] for l in labels_np]
     cat_labels = np.array([get_category(w) for w in word_labels])
 
@@ -402,7 +402,7 @@ def fig2_umap(model, val_X, val_y, val_paths, idx_to_label, device):
     ax.set_ylabel(f"{method} 2")
     savefig(fig, "fig2a_umap_by_category")
 
-    # ── Fig 2b: by speaker ──
+    # Fig 2b: by speaker
     speakers = np.array([extract_speaker(p) for p in val_paths])
     unique_speakers = sorted(set(speakers))
     speaker_cmap = plt.get_cmap("tab20", len(unique_speakers))
@@ -425,7 +425,7 @@ def fig2_umap(model, val_X, val_y, val_paths, idx_to_label, device):
     savefig(fig, "fig2b_umap_by_speaker")
 
 
-# ── Fig 3: Conv1 Filters ───────────────────────────────────────────────────
+# Fig 3: Conv1 Filters
 def fig3_filters(model):
     print("[4/9] Fig 3: First-layer filters...")
     filters = model.block1.conv1.weight.data.cpu().numpy()  # (64, 1, 3, 3)
@@ -458,7 +458,7 @@ def fig3_filters(model):
     savefig(fig, "fig3_conv1_filters")
 
 
-# ── Fig 4: Grad-CAM ────────────────────────────────────────────────────────
+# Fig 4: Grad-CAM
 def fig4_gradcam(model, val_X, val_y, idx_to_label, label_to_idx, device):
     print("[5/9] Fig 4: Grad-CAM...")
     target_words = [
@@ -554,7 +554,7 @@ def fig4_gradcam(model, val_X, val_y, idx_to_label, label_to_idx, device):
     savefig(fig, "fig4_gradcam_examples")
 
 
-# ── Fig 5a: Layer-wise RDMs ────────────────────────────────────────────────
+# Fig 5a: Layer-wise RDMs
 def fig5a_rdm(layer_acts, val_specs, val_y, idx_to_label):
     print("[6/9] Fig 5a: Layer-wise RDMs...")
     from scipy.spatial.distance import cosine
@@ -619,7 +619,7 @@ def fig5a_rdm(layer_acts, val_specs, val_y, idx_to_label):
     return rdms
 
 
-# ── Fig 5b: Dendrograms ────────────────────────────────────────────────────
+# Fig 5b: Dendrograms
 def fig5b_dendrograms(rdms, idx_to_label):
     print("[7/9] Fig 5b: Dendrograms...")
     from scipy.cluster.hierarchy import linkage, dendrogram
@@ -672,7 +672,7 @@ def fig5b_dendrograms(rdms, idx_to_label):
     savefig(fig, "fig5b_dendrograms")
 
 
-# ── Fig 6: Speaker Invariance ──────────────────────────────────────────────
+# Fig 6: Speaker Invariance
 def fig6_speaker_invariance(layer_acts, val_specs, val_y, val_paths):
     print("[8/9] Fig 6: Speaker invariance...")
     labels_np = val_y.numpy()
@@ -749,7 +749,7 @@ def fig6_speaker_invariance(layer_acts, val_specs, val_y, val_paths):
     savefig(fig, "fig6_speaker_invariance")
 
 
-# ── Comparison: Confusion Matrix (side-by-side) ────────────────────────────
+# Comparison: Confusion Matrix (side-by-side)
 def fig_cmp_confusion(model_u, model_t, val_X, val_y, idx_to_label, device):
     print("\n[cmp 1] Confusion matrix comparison...")
     from sklearn.metrics import confusion_matrix
@@ -795,7 +795,7 @@ def fig_cmp_confusion(model_u, model_t, val_X, val_y, idx_to_label, device):
     savefig(fig, "cmp_confusion_matrix")
 
 
-# ── Comparison: UMAP ──────────────────────────────────────────────────────
+# Comparison: UMAP
 def fig_cmp_umap(model_u, model_t, val_X, val_y, val_paths, idx_to_label,
                  device):
     print("[cmp 2] UMAP comparison...")
@@ -840,7 +840,7 @@ def fig_cmp_umap(model_u, model_t, val_X, val_y, val_paths, idx_to_label,
     emb_u_2d = reduce(emb_u)
     emb_t_2d = reduce(emb_t)
 
-    # ── By category (2x1) ──
+    # By category (2x1)
     fig, axes = plt.subplots(1, 2, figsize=(18, 7))
     for ax, emb_2d, title in zip(axes, [emb_u_2d, emb_t_2d],
                                   ["Untrained", "Trained"]):
@@ -862,7 +862,7 @@ def fig_cmp_umap(model_u, model_t, val_X, val_y, val_paths, idx_to_label,
     plt.tight_layout()
     savefig(fig, "cmp_umap_by_category")
 
-    # ── By speaker (2x1) ──
+    # By speaker (2x1)
     fig, axes = plt.subplots(1, 2, figsize=(18, 7))
     for ax, emb_2d, title in zip(axes, [emb_u_2d, emb_t_2d],
                                   ["Untrained", "Trained"]):
@@ -884,7 +884,7 @@ def fig_cmp_umap(model_u, model_t, val_X, val_y, val_paths, idx_to_label,
     savefig(fig, "cmp_umap_by_speaker")
 
 
-# ── Comparison: Filters ───────────────────────────────────────────────────
+# Comparison: Filters
 def fig_cmp_filters(model_u, model_t):
     print("[cmp 3] Filter comparison...")
     fig, all_axes = plt.subplots(8, 16, figsize=(20, 6))
@@ -912,7 +912,7 @@ def fig_cmp_filters(model_u, model_t):
     savefig(fig, "cmp_conv1_filters")
 
 
-# ── Comparison: Grad-CAM ─────────────────────────────────────────────────
+# Comparison: Grad-CAM
 def fig_cmp_gradcam(model_u, model_t, val_X, val_y, idx_to_label,
                     label_to_idx, device):
     print("[cmp 4] Grad-CAM comparison...")
@@ -990,7 +990,7 @@ def fig_cmp_gradcam(model_u, model_t, val_X, val_y, idx_to_label,
     savefig(fig, "cmp_gradcam")
 
 
-# ── Comparison: RDMs ──────────────────────────────────────────────────────
+# Comparison: RDMs
 def fig_cmp_rdm(model_u, model_t, val_X, val_specs, val_y, idx_to_label,
                 device):
     print("[cmp 5] RDM comparison...")
@@ -1051,7 +1051,7 @@ def fig_cmp_rdm(model_u, model_t, val_X, val_specs, val_y, idx_to_label,
     savefig(fig, "cmp_rdm_layers")
 
 
-# ── Comparison: Speaker Invariance ────────────────────────────────────────
+# Comparison: Speaker Invariance
 def fig_cmp_speaker_invariance(model_u, model_t, val_X, val_specs, val_y,
                                 val_paths, device):
     print("[cmp 6] Speaker invariance comparison...")
@@ -1120,7 +1120,7 @@ def fig_cmp_speaker_invariance(model_u, model_t, val_X, val_specs, val_y,
     savefig(fig, "cmp_speaker_invariance")
 
 
-# ── Main ────────────────────────────────────────────────────────────────────
+# Main
 def main():
     os.makedirs(OUT_DIR, exist_ok=True)
     (model_t, val_X, val_specs, val_y, val_paths,
@@ -1133,7 +1133,7 @@ def main():
     model_u.eval()
     print("Created untrained model (random weights)")
 
-    # ── Trained-only figures ──
+    # Trained-only figures
     print("\n=== Trained-model figures ===")
     cm_raw, _, _ = fig1a_confusion_matrix(model_t, val_X, val_y,
                                           idx_to_label, device)
@@ -1147,7 +1147,7 @@ def main():
     fig5b_dendrograms(rdms, idx_to_label)
     fig6_speaker_invariance(layer_acts_t, val_specs, val_y, val_paths)
 
-    # ── Before/After comparison figures ──
+    # Before/After comparison figures
     print("\n=== Untrained vs Trained comparison figures ===")
     fig_cmp_confusion(model_u, model_t, val_X, val_y, idx_to_label, device)
     fig_cmp_umap(model_u, model_t, val_X, val_y, val_paths, idx_to_label,
