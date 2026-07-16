@@ -13,8 +13,10 @@ data/visual/video_data.zip
 # Backups
 *.bak
 
-# Run logs
+# Run logs + scratch completion markers
 *.log
+*.done
+logs/
 
 # Example-script outputs
 examples/output/
