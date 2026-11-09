@@ -1,0 +1,5 @@
+condition,gate_mean_abs,gate_l2_per_sample,frac_pos
+AV_full,0.409855,363.757477,0.494008
+audio_only,0.478048,373.412720,0.494050
+video_only,0.448214,365.247559,0.578160
+alpha_param,5.152612,nan,nan

@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
-"""Train the AV-fused word recognizer. Mirrors `train.py`'s recipe but feeds
-(audio, video, label) triples through `AVWordResNet`. Both branches train from
-random init; no pretrained audio weights. Shares `processed/splits.pt` with
-the A-only baseline so the partitions are identical."""
+"""Train AVWordResNet from scratch using the shared processed/splits.pt split.
+
+--modality-mix assigns equal thirds of training samples to audio, video, and
+paired input. Select checkpoints by mean accuracy across those conditions.
+Mixed-training outputs are named av_fused_modality_mix.
+"""
 
 from __future__ import annotations
 
+import argparse
 import hashlib
 import os
 import time
@@ -38,19 +41,16 @@ WEIGHT_DECAY = 1e-2
 TEST_SIZE = 0.33
 RANDOM_SEED = 42
 ALPHA_INIT = 0.2
-T_STRIDE = 2          # video T=100 cache → T=50 input (50 fps effective)
-USE_BF16 = True       # bf16 autocast on Ampere; no GradScaler needed
-USE_COMPILE = True    # torch.compile for kernel fusion (~25-30% step speedup)
-# Early stopping intentionally disabled — see train_filtered.py.
+T_STRIDE = 2          # 100 cached frames → 50 input frames (50 fps)
+USE_BF16 = True
+USE_COMPILE = True
 
-# Cap workers — DataLoader workers each open the video memmap; keep modest.
+# Each worker opens the video memmap.
 NUM_WORKERS = 4
 
 
-# AV dataset wrapper with audio-side SpecAugment + video flip
 class _AVAugmentedView(torch.utils.data.Dataset):
-    """Dataset wrapper that adds the (B, 1, …) channel dim to mel and applies
-    light per-sample augmentations during training only."""
+    """Add the mel channel dimension and optional training augmentation."""
 
     def __init__(self, base: PairedAVDataset, indices: np.ndarray, augment: bool):
         self.base = base
@@ -67,7 +67,6 @@ class _AVAugmentedView(torch.utils.data.Dataset):
         mel = mel.unsqueeze(0)
         if self.augment:
             mel = spec_augment(mel)
-            # Horizontal flip on the lip ROI (lipreading is L-R symmetric).
             if torch.rand(1).item() < 0.5:
                 video = torch.flip(video, dims=[-1])
         return mel, video, label
@@ -77,7 +76,8 @@ def _hash_idx(idx: np.ndarray) -> str:
     return hashlib.sha256(np.asarray(idx, dtype=np.int64).tobytes()).hexdigest()
 
 
-def _save_curves(history: dict, num_classes: int, best_val_acc: float) -> None:
+def _save_curves(history: dict, num_classes: int, best_val_acc: float,
+                 curve_png: str = CURVE_PNG) -> None:
     epochs = np.arange(1, len(history["train_loss"]) + 1)
     fig, axes = plt.subplots(1, 2, figsize=(11, 4.2))
 
@@ -93,6 +93,10 @@ def _save_curves(history: dict, num_classes: int, best_val_acc: float) -> None:
     ax = axes[1]
     ax.plot(epochs, history["train_acc"], label="train")
     ax.plot(epochs, history["val_acc"], label="val")
+    for condition in ("a", "v", "av"):
+        key = f"val_acc_{condition}"
+        if key in history:
+            ax.plot(epochs, history[key], label=f"val {condition.upper()}", alpha=0.7)
     if "alpha" in history:
         ax2 = ax.twinx()
         ax2.plot(epochs, history["alpha"], color="tab:gray",
@@ -107,15 +111,18 @@ def _save_curves(history: dict, num_classes: int, best_val_acc: float) -> None:
     ax.set_ylim(0, 1)
 
     fig.tight_layout()
-    os.makedirs(os.path.dirname(CURVE_PNG), exist_ok=True)
-    fig.savefig(CURVE_PNG, dpi=130)
+    os.makedirs(os.path.dirname(curve_png), exist_ok=True)
+    fig.savefig(curve_png, dpi=130)
     plt.close(fig)
 
 
-def _write_curves_csv(history: dict) -> None:
-    os.makedirs(os.path.dirname(CURVE_CSV), exist_ok=True)
-    with open(CURVE_CSV, "w") as f:
-        f.write("epoch,train_loss,train_acc,val_loss,val_acc,alpha,epoch_time_s,peak_gpu_gib\n")
+def _write_curves_csv(history: dict, curve_csv: str = CURVE_CSV) -> None:
+    os.makedirs(os.path.dirname(curve_csv), exist_ok=True)
+    extra_keys = [f"val_{metric}_{condition}" for condition in ("a", "v", "av")
+                  for metric in ("loss", "acc") if f"val_{metric}_{condition}" in history]
+    with open(curve_csv, "w") as f:
+        f.write("epoch,train_loss,train_acc,val_loss,val_acc,alpha,epoch_time_s,peak_gpu_gib"
+                + "".join(f",{key}" for key in extra_keys) + "\n")
         n = len(history["train_loss"])
         for i in range(n):
             f.write(
@@ -125,11 +132,22 @@ def _write_curves_csv(history: dict) -> None:
                 f"{history['val_acc'][i]:.6f},"
                 f"{history['alpha'][i]:.6f},"
                 f"{history['epoch_time_s'][i]:.3f},"
-                f"{history['peak_gpu_gib'][i]:.3f}\n"
+                f"{history['peak_gpu_gib'][i]:.3f}"
+                + "".join(f",{history[key][i]:.6f}" for key in extra_keys) + "\n"
             )
 
 
 def main() -> None:
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--modality-mix", action="store_true",
+                    help="train on equal thirds A-only, V-only and AV")
+    args = ap.parse_args()
+    stem = "av_fused_modality_mix" if args.modality_mix else "av_fused"
+    model_path = os.path.join(SCRIPT_DIR, "models", f"{stem}.pt")
+    curve_png = os.path.join(SCRIPT_DIR, "analysis", f"{stem}_curves.png")
+    curve_csv = os.path.join(SCRIPT_DIR, "analysis", f"{stem}_curves.csv")
+    conditions = ("a", "v", "av") if args.modality_mix else ("av",)
+
     torch.manual_seed(RANDOM_SEED)
     np.random.seed(RANDOM_SEED)
 
@@ -144,7 +162,7 @@ def main() -> None:
     print(f"Filter: dropped speakers={config['dropped_speakers']}, "
           f"dropped (speaker, group)={config['dropped_speaker_groups']}")
 
-    # Shared split (#7's run already wrote this).
+    # Reuse the audio baseline's train/validation split.
     if os.path.exists(SPLITS_PATH):
         s = torch.load(SPLITS_PATH, weights_only=False)
         train_idx, val_idx = s["train_idx"], s["val_idx"]
@@ -173,6 +191,9 @@ def main() -> None:
     val_loader = DataLoader(val_ds, batch_size=BATCH_SIZE, shuffle=False,
                             num_workers=NUM_WORKERS, pin_memory=True)
     print(f"Train: {len(train_ds)}, Val: {len(val_ds)}")
+    if args.modality_mix:
+        print("Training: equal thirds A / V / AV; checkpoint metric: mean A / V / AV accuracy")
+    print(f"Checkpoint: {model_path}")
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Device: {device}")
@@ -190,9 +211,7 @@ def main() -> None:
     print(f"torch.compile: {USE_COMPILE}")
     autocast_kw = {"device_type": "cuda", "dtype": torch.bfloat16, "enabled": USE_BF16}
 
-    # The gate's α parameter must remain bound to the original `model` object
-    # so the checkpoint state_dict and our `model.gate.alpha` reads stay valid.
-    # Compiling returns a wrapper that delegates to the same underlying module.
+    # Save checkpoints from the original module to preserve state_dict keys.
     if USE_COMPILE:
         compiled = torch.compile(model, mode="default")
     else:
@@ -208,6 +227,10 @@ def main() -> None:
     history = {"train_loss": [], "train_acc": [],
                "val_loss": [], "val_acc": [], "alpha": [],
                "epoch_time_s": [], "peak_gpu_gib": []}
+    if args.modality_mix:
+        for condition in conditions:
+            history[f"val_loss_{condition}"] = []
+            history[f"val_acc_{condition}"] = []
     best_val_acc = 0.0
     best_val_loss = float("inf")
     best_epoch = 0
@@ -228,13 +251,23 @@ def main() -> None:
         train_loss = 0.0
         train_correct = 0
         train_total = 0
+        condition_counts = torch.zeros(3, dtype=torch.long, device=device)
         for mel, video, y in train_loader:
             mel = mel.to(device, non_blocking=True)
             video = video.to(device, non_blocking=True)
             y = y.to(device, non_blocking=True)
+            if args.modality_mix:
+                # 0=A, 1=V, 2=AV. Shuffle assignments; rotate leftover samples
+                # so epoch counts differ by at most one.
+                modes = (torch.arange(y.size(0), device=device) + train_total + epoch - 1) % 3
+                modes = modes[torch.randperm(y.size(0), device=device)]
+                condition_counts += torch.bincount(modes, minlength=3)
             optimizer.zero_grad()
             with torch.autocast(**autocast_kw):
-                logits = compiled(mel, video)
+                if args.modality_mix:
+                    logits = compiled(mel, video, audio_dead=(modes == 1), video_dead=(modes == 0))
+                else:
+                    logits = compiled(mel, video)
                 loss = criterion(logits, y)
             loss.backward()
             optimizer.step()
@@ -246,28 +279,40 @@ def main() -> None:
 
         # Validate
         model.eval()
-        val_loss = 0.0
-        val_correct = 0
+        val_losses = dict.fromkeys(conditions, 0.0)
+        val_correct = dict.fromkeys(conditions, 0)
         val_total = 0
         with torch.no_grad():
             for mel, video, y in val_loader:
                 mel = mel.to(device, non_blocking=True)
                 video = video.to(device, non_blocking=True)
                 y = y.to(device, non_blocking=True)
-                with torch.autocast(**autocast_kw):
-                    logits = compiled(mel, video)
-                    loss = criterion(logits, y)
-                val_loss += loss.item() * y.size(0)
-                val_correct += (logits.argmax(1) == y).sum().item()
+                for condition in conditions:
+                    with torch.autocast(**autocast_kw):
+                        if condition == "a":
+                            logits = compiled(mel, None)
+                        elif condition == "v":
+                            logits = compiled(torch.zeros_like(mel), video)
+                        else:
+                            logits = compiled(mel, video)
+                        loss = criterion(logits, y)
+                    val_losses[condition] += loss.item() * y.size(0)
+                    val_correct[condition] += (logits.argmax(1) == y).sum().item()
                 val_total += y.size(0)
-        val_loss /= val_total
-        val_acc = val_correct / val_total
+        val_losses = {c: loss / val_total for c, loss in val_losses.items()}
+        val_accs = {c: correct / val_total for c, correct in val_correct.items()}
+        val_loss = sum(val_losses.values()) / len(conditions)
+        val_acc = sum(val_accs.values()) / len(conditions)
 
         history["train_loss"].append(train_loss)
         history["train_acc"].append(train_acc)
         history["val_loss"].append(val_loss)
         history["val_acc"].append(val_acc)
         history["alpha"].append(float(model.gate.alpha.detach()))
+        if args.modality_mix:
+            for condition in conditions:
+                history[f"val_loss_{condition}"].append(val_losses[condition])
+                history[f"val_acc_{condition}"].append(val_accs[condition])
 
         epoch_t = time.time() - t0
         epoch_times.append(epoch_t)
@@ -281,14 +326,17 @@ def main() -> None:
               f"| {val_loss:8.4f} | {val_acc:6.1%} "
               f"| {history['alpha'][-1]:5.3f} | {epoch_t:4.1f}s "
               f"| {epoch_peak:4.1f}G")
+        if args.modality_mix:
+            print("        val " + " / ".join(f"{c.upper()}={val_accs[c]:.2%}" for c in conditions)
+                  + f"; train counts A/V/AV={condition_counts.tolist()}", flush=True)
 
-        # Best by val_acc — early stopping intentionally disabled.
+        # Save the highest validation accuracy across the full training run.
         if val_acc > best_val_acc:
             best_val_acc = val_acc
             best_val_loss = val_loss
             best_epoch = epoch
-            os.makedirs(os.path.dirname(MODEL_PATH), exist_ok=True)
-            torch.save({
+            os.makedirs(os.path.dirname(model_path), exist_ok=True)
+            checkpoint = {
                 "model_state_dict": model.state_dict(),
                 "label_to_idx": label_to_idx,
                 "idx_to_label": idx_to_label,
@@ -302,8 +350,19 @@ def main() -> None:
                 "val_idx_sha256": val_hash,
                 "alpha_init": ALPHA_INIT,
                 "alpha_at_best": history["alpha"][-1],
-            }, MODEL_PATH)
+            }
+            if args.modality_mix:
+                checkpoint.update({
+                    "selection_metric": "mean_A_V_AV_accuracy",
+                    "val_acc_by_condition": val_accs,
+                    "val_loss_by_condition": val_losses,
+                    "training_modality_probabilities": {c: 1 / 3 for c in conditions},
+                    "training_modality_counts": dict(zip(conditions, condition_counts.tolist())),
+                })
+            torch.save(checkpoint, model_path)
         scheduler.step()
+        if args.modality_mix:
+            _write_curves_csv(history, curve_csv)
 
     print(f"\nTraining complete.")
     print(f"Best val accuracy: {best_val_acc:.1%} (epoch {best_epoch})")
@@ -312,12 +371,12 @@ def main() -> None:
     print(f"Mean time/epoch: {np.mean(epoch_times):.1f}s "
           f"(median {np.median(epoch_times):.1f}s)")
     print(f"Peak GPU: {peak_gpu_gib:.2f} GiB")
-    print(f"Saved model to: {MODEL_PATH}")
+    print(f"Saved model to: {model_path}")
 
-    _save_curves(history, num_classes, best_val_acc)
-    _write_curves_csv(history)
-    print(f"Saved curves to: {CURVE_PNG}")
-    print(f"Saved curves CSV to: {CURVE_CSV}")
+    _save_curves(history, num_classes, best_val_acc, curve_png)
+    _write_curves_csv(history, curve_csv)
+    print(f"Saved curves to: {curve_png}")
+    print(f"Saved curves CSV to: {curve_csv}")
 
 
 if __name__ == "__main__":

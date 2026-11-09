@@ -1,0 +1,5 @@
+condition,AV_acc
+AV_full,0.929825
+audio_only_video_zero,0.828185
+video_only_audio_zero,0.726545
+both_zero,0.008772

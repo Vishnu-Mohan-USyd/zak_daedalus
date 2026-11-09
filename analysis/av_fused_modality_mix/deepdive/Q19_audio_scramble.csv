@@ -1,0 +1,13 @@
+mode,seed,AV_acc,A_acc,AV_minus_A_pp,reference,flag
+none,-,0.929825,0.926964,+0.2860,AV 0.956712/A 0.926964,** FLAG
+mel_time_shuffle,0,0.042906,0.023837,+1.9069,artifact AV 0.049199/A 0.023837 (Δ AV -0.0063/A -0.0000),
+mel_time_shuffle,10000,0.041190,0.017353,+2.3837,,
+mel_time_shuffle,20000,0.039474,0.020214,+1.9260,,
+mel_block_shuffle,0,0.256674,0.135965,+12.0709,artifact AV 0.124523/A 0.135965 (Δ AV +0.1322/A -0.0000),
+mel_block_shuffle,10000,0.259344,0.144165,+11.5179,,
+mel_block_shuffle,20000,0.255339,0.135774,+11.9565,,
+phase_scramble,0,0.195080,0.060259,+13.4821,artifact AV 0.24733/A 0.060259 (Δ AV -0.0522/A +0.0000),
+phase_scramble,10000,0.193555,0.061976,+13.1579,,
+phase_scramble,20000,0.192220,0.060831,+13.1388,,
+ref_additive_noise_sigma0.05,-,0.609268,0.134249,+47.5019,"cited: validator_indep_E1_sigma_a.csv (independently re-derived, exact)",OK
+ref_clean_baseline,-,0.956712,0.926964,+2.9748,anchor,OK

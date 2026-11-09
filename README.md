@@ -1,5 +1,45 @@
 # Daedalus — audiovisual spoken-word recognition and how the two senses combine
 
+## Current AV model
+
+The current run trains `AVWordResNet` with equal exposure to audio-only,
+video-only and paired inputs. Each batch is split into thirds, with the extra
+samples rotated between conditions. The checkpoint is selected by mean
+validation accuracy across the three conditions.
+
+```bash
+python train_av.py --modality-mix
+```
+
+- Model: [`model_av.py`](model_av.py)
+- Training: [`train_av.py`](train_av.py)
+- Checkpoint: `models/av_fused_modality_mix.pt` (local, gitignored)
+- Training curves: [figure](analysis/av_fused_modality_mix_curves.png),
+  [values](analysis/av_fused_modality_mix_curves.csv)
+- Results: [`analysis/av_fused_modality_mix/`](analysis/av_fused_modality_mix/)
+
+Missing audio is represented by a zero mel input. Missing video is represented
+by zero visual features. Fusion uses the multiplicative gate described below.
+
+### Latest figures
+
+| Analysis | Figure |
+|---|---|
+| Audio-only, video-only and paired accuracy | [Accuracy matrix](analysis/av_fused_modality_mix/deepdive/D1_3x3_matrix.png) |
+| Word representations by onset phoneme class | [UMAP](analysis/av_fused_modality_mix/deepdive/D2_umap_3cond_onset_class.png) |
+| Cue weighting from agreement with separate audio/video models | [Auditory weighting](analysis/av_fused_modality_mix/msi/FIG_cue_weight_heatmap_clean.png) |
+| Enhancement over individual inputs and over their sum | [MEI and superadditivity](analysis/av_fused_modality_mix/msi/E4_activation_mei.png) |
+| FIVE: paired response minus the separate responses | [Raw subtraction](analysis/av_fused_modality_mix/deepdive/FIVE_A_V_AV_subtraction.png) |
+| FIVE: subtraction with the no-input baseline added back | [Baseline-corrected subtraction](analysis/av_fused_modality_mix/deepdive/FIVE_A_V_AV_baseline_corrected.png) |
+
+Results are grouped under `msi/`, `deepdive/`, `phonetic_clustering_av/`,
+`legacy_representations/`, `mel_noise/` and `noise_sweeps/`. CSV files contain
+the values behind the figures. Comparisons retain their model labels.
+
+The sections below document the earlier runs.
+
+---
+
 This repository trains small neural networks to recognise **spoken words from audio and video
 of the speaker's face**, and then spends most of its effort on a single scientific question:
 **when you give a network both an ear and an eye, how does it actually combine them?** The task
@@ -94,8 +134,8 @@ a_fused = a_mid · (1 + α · sigmoid(W_a · a_mid + W_v · v_mid))
 - `a_mid` is the 64-channel audio feature map after the first audio block.
 - `v_mid` is a 64-channel feature map from a small 3D-conv lip encoder (`VisualEncoder`).
 - `W_a`, `W_v` are 1×1 convolutions; `α` is a single learned scalar that trains to **≈ 5.20**.
-- Read it as: *vision multiplicatively modulates the audio channels.* When `v_mid = 0` the gate
-  term collapses and the audio passes through (nearly) unchanged.
+- Vision modulates the audio channels. With `v_mid = 0`, the gain is still
+  `1 + α · sigmoid(W_a · a_mid)`.
 
 This is the model behind almost all of the mechanism analysis, because the multiplication gives it
 properties the other variants lack (sparse channel coding, inhibition, context-dependent gain).

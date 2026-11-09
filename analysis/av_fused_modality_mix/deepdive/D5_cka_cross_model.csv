@@ -1,0 +1,16 @@
+AV_site,A_site,linear_CKA
+a_mid_gap,block1_gap,0.975181
+a_mid_gap,block2_gap,0.580588
+a_mid_gap,penult,0.580588
+v_mid_gap,block1_gap,0.872665
+v_mid_gap,block2_gap,0.543603
+v_mid_gap,penult,0.543603
+gate_out_gap,block1_gap,0.967488
+gate_out_gap,block2_gap,0.604373
+gate_out_gap,penult,0.604373
+block2_gap,block1_gap,0.583588
+block2_gap,block2_gap,0.815893
+block2_gap,penult,0.815893
+penult,block1_gap,0.583588
+penult,block2_gap,0.815893
+penult,penult,0.815893

@@ -1,0 +1,5 @@
+model,n_viseme_classes,test_acc,balanced_test_acc
+A_clean,6,0.8205,0.7682
+A_noisy,6,0.8225,0.7814
+AV_clean,6,0.8844,0.8283
+AV_noisy,6,0.9128,0.8663

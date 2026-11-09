@@ -1,0 +1,11 @@
+feature,rf_importance_delta_flip,rf_importance_delta_logconf,rf_importance_delta_margin
+viseme_bilabial_bpm,0.044338,0.063010,0.034064
+viseme_glottal_h,0.017869,0.011570,0.015020
+viseme_labiodental_fv,0.024463,0.059356,0.049063
+viseme_labiovelar_w,0.018363,0.010836,0.005747
+viseme_lingual,0.050327,0.066200,0.064741
+viseme_other,0.044348,0.026896,0.016989
+viseme_vowel_initial,0.021748,0.067414,0.023842
+word_len,0.535216,0.462248,0.379855
+n_vowels,0.219901,0.205374,0.389288
+vowel_initial,0.023426,0.027095,0.021391

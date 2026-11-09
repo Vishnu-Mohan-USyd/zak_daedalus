@@ -1,0 +1,8 @@
+viseme_class,n_samples,A_acc,AV_acc,delta
+labiovelar_w,185,0.9459,0.9730,0.0270
+glottal_h,161,0.9565,0.9814,0.0248
+bilabial_bpm,777,0.9421,0.9511,0.0090
+labiodental_fv,485,0.9320,0.9402,0.0082
+vowel_initial,735,0.9320,0.9374,0.0054
+lingual,2587,0.9177,0.9146,-0.0031
+other,314,0.9204,0.9172,-0.0032

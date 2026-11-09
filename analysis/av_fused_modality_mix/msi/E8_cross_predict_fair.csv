@@ -1,0 +1,5 @@
+probe,r2
+AV_a→v,0.397378
+AV_v→a,0.550125
+UNI_fair_a→v,0.165081
+UNI_fair_v→a,0.266382

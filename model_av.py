@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""AV word recognizer: 2D-conv audio ResNet + 3D-conv lip encoder, fused
-mid-block by a multiplicative cross-modal gate."""
+"""AV word recognizer with a visual gate on audio features."""
 
 from __future__ import annotations
 
@@ -11,7 +10,7 @@ from train import ResBlock
 
 
 class _Conv3DResBlock(nn.Module):
-    """3D analogue of the audio ResBlock."""
+    """3D residual block for lip video."""
 
     def __init__(self, in_ch: int, out_ch: int, stride=(1, 1, 1)):
         super().__init__()
@@ -39,13 +38,10 @@ class _Conv3DResBlock(nn.Module):
 
 
 class VisualEncoder(nn.Module):
-    """Maps (B, 1, T, 88, 88) lip clips to (B, 64, 40, 50) feature maps
-    shaped to align with `WordResNet.block1` output."""
+    """Map (B, 1, T, 88, 88) lip clips to (B, 64, 40, 50) features."""
 
     def __init__(self):
         super().__init__()
-        # AdaptiveAvgPool3d handles temporal reduction to T=50, so the encoder
-        # accepts both T=100 and T=50 inputs without changes.
         self.stem = nn.Sequential(
             nn.Conv3d(1, 8, kernel_size=(5, 7, 7),
                       stride=(1, 1, 1), padding=(2, 3, 3), bias=False),
@@ -55,7 +51,7 @@ class VisualEncoder(nn.Module):
         self.res1 = _Conv3DResBlock(8, 16, stride=(1, 1, 1))
         self.res2 = _Conv3DResBlock(16, 32, stride=(1, 2, 2))
         self.res3 = _Conv3DResBlock(32, 64, stride=(1, 1, 1))
-        # Adaptive pool: T → 50, H → 40, W → 1 (collapses width).
+        # Pool variable-length clips to 50 time steps and collapse width.
         self.pool = nn.AdaptiveAvgPool3d((50, 40, 1))
 
     def forward(self, x):
@@ -70,10 +66,9 @@ class VisualEncoder(nn.Module):
 
 
 class CrossModalGate(nn.Module):
-    """Multiplicative cross-modal gain: a_out = a * (1 + α · σ(W_a·a + W_v·v)).
+    """Scale audio features: a_out = a * (1 + α · σ(W_a·a + W_v·v)).
 
-    α is a learnable scalar with small init so the network starts ~audio-only
-    and learns how strongly to lean on the visual stream.
+    α is learned; its default initial value is 0.2.
     """
 
     def __init__(self, channels: int = 64, alpha_init: float = 0.2):
@@ -88,8 +83,7 @@ class CrossModalGate(nn.Module):
 
 
 class AVWordResNet(nn.Module):
-    """Audio path mirrors `WordResNet`; audio_block1/audio_block2/fc are
-    individually compatible with pretrained `processed/model.pt` weights."""
+    """Audio ResNet with visual gating between its two residual blocks."""
 
     def __init__(self, num_classes: int, alpha_init: float = 0.2):
         super().__init__()
@@ -110,15 +104,27 @@ class AVWordResNet(nn.Module):
         self,
         audio: torch.Tensor,
         video: torch.Tensor | None = None,
+        audio_dead: torch.Tensor | None = None,
+        video_dead: torch.Tensor | None = None,
     ) -> torch.Tensor:
-        """`video=None` zeroes v_mid: gate reduces to a_mid · (1 + α·σ(W_a·a_mid)).
-        Not equivalent to plain `WordResNet` — AV-trained weights still apply."""
-        # audio: (B, 1, 80, 99); video: (B, 1, 100, 88, 88) or None.
+        """Classify audio, video, or paired input using the same AV weights.
+
+        Boolean masks of shape (B,) mark missing inputs. Missing audio zeroes
+        the mel input; missing video zeroes pixels and encoded features.
+        `video=None` also sets visual features to zero.
+        """
+        # audio: (B, 1, 80, 99); video: (B, 1, T, 88, 88) or None.
+        if audio_dead is not None:
+            audio = audio * (~audio_dead).view(-1, 1, 1, 1).to(audio.dtype)
         a_mid = self.audio_block1(audio)        # (B, 64, 40, 50)
         if video is None:
             v_mid = torch.zeros_like(a_mid)
         else:
+            if video_dead is not None:
+                video = video * (~video_dead).view(-1, 1, 1, 1, 1).to(video.dtype)
             v_mid = self.visual(video)          # (B, 64, 40, 50)
+            if video_dead is not None:
+                v_mid = v_mid * (~video_dead).view(-1, 1, 1, 1).to(v_mid.dtype)
         a_fused = self.gate(a_mid, v_mid)       # (B, 64, 40, 50)
         x = self.audio_block2(a_fused)          # (B, 128, 20, 25)
         x = self.gap(x).flatten(1)              # (B, 128)
@@ -126,7 +132,7 @@ class AVWordResNet(nn.Module):
         return self.fc(x)                       # (B, num_classes)
 
     def load_audio_pretrained(self, checkpoint_state_dict: dict) -> None:
-        """Map A-only checkpoint keys (block1/block2) → audio_block1/audio_block2."""
+        """Load an audio checkpoint, renaming block1 and block2 keys."""
         renames = {
             "block1": "audio_block1",
             "block2": "audio_block2",
@@ -139,5 +145,5 @@ class AVWordResNet(nn.Module):
                     break
             else:
                 new_sd[k] = v
-        # Allow strict=False since visual + gate keys are fresh.
+        # Keep the visual encoder and gate at their current weights.
         self.load_state_dict(new_sd, strict=False)

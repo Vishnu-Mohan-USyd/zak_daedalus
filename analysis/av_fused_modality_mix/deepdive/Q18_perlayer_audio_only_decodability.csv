@@ -1,0 +1,13 @@
+variant,condition,layer,acc_5fold,bal_acc_5fold,report_acc,delta_pp
+D5,A_only,block1_gap,0.425630,0.358116,0.424676,+0.095pp
+D5,A_only,penult,0.902745,0.899382,0.898741,+0.400pp
+D5,AV_clean_full,a_mid_gap,0.334093,0.256415,0.279367,+5.473pp
+D5,AV_clean_full,gate_out_gap,0.695653,0.656700,0.760678,-6.503pp
+D5,AV_clean_full,penult,0.917048,0.912867,0.943744,-2.670pp
+D5,AV_clean_v_zero,gate_out_gap,0.426580,0.354810,0.346491,+8.009pp
+D5,AV_clean_v_zero,penult,0.837145,0.823639,0.512209,+32.494pp
+D4,AV_clean_v_zero,penult,0.838479,0.824825,0.512209,+32.627pp
+_struct,cliff_penult,,0.079904,,0.431535,
+_adjudication,vzero_penult_D5,,0.837145,,0.512209,
+_adjudication,vzero_penult_D4,,0.838479,,0.526320,
+_adjudication,verdict,,DISCREPANCY: probe-variant hypothesis NOT confirmed -> flag to debugger,,,

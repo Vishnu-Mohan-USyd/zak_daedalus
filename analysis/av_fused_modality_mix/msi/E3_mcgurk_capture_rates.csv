@@ -1,0 +1,3 @@
+conflict_type,n_pairs,AV_audio_capture,AV_visual_capture,AV_third_word,A_only_audio_capture
+distinct,1500,0.2860,0.0267,0.6873,0.9293
+identical,1500,0.3713,0.0460,0.5827,0.9300

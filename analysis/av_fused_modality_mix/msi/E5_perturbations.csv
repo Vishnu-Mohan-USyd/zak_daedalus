@@ -1,0 +1,7 @@
+perturbation,AV_acc
+none,0.929825
+time_shuffle,0.032037
+freeze_t0,0.118802
+block_shuffle,0.562357
+random_video,0.283181
+zero_video,0.102021
